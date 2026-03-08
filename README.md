@@ -1,118 +1,65 @@
 # fred-biz-apps
 
-A Python package + Shiny for Python app that downloads **FRED Business Formation
-Statistics (BFS)** data from the St. Louis Fed and visualises it interactively.
+A Python package and interactive Shiny dashboard that wraps the **FRED Business
+Formation Statistics (BFS)** — monthly data on new business applications and
+high-propensity business applications published by the U.S. Census Bureau and
+hosted by the Federal Reserve Bank of St. Louis.
+
+> **A FRED API key is required.** It is free and takes about two minutes to
+> obtain — see [Get a FRED API key](#1-get-a-fred-api-key-required) below.
 
 ---
 
 ## What data is included?
 
-All data comes from the **U.S. Census Bureau Business Formation Statistics**,
-mirrored on FRED:
+All series come from the **U.S. Census Bureau Business Formation Statistics**,
+accessed via the [FRED API](https://fred.stlouisfed.org/).
 
-| Category | Series | Notes |
+### Aggregate (national totals) — monthly
+
+| Series ID | Description | Adj |
 |---|---|---|
-| Total business applications | `BABATOTALSAUS` | Weekly, NSA |
-| Total – 4-week moving avg | `BABATOTALMAVG4SAUS` | Weekly, NSA |
-| Total – seasonally adjusted | `BABATOTALSASAUS` | SA annual rate |
-| High-propensity applications | `HBABATOTALSAUS` | Weekly, NSA |
-| High-propensity – 4-week MA | `HBABATOTALMAVG4SAUS` | Weekly, NSA |
-| High-propensity – SA | `HBABATOTALSASAUS` | SA annual rate |
-| Industry breakdown (×20 NAICS sectors) | `BABAnnNQNSA` / `HBABAnnNQNSA` | Quarterly, NSA |
+| `BABATOTALSAUS` | Total Business Applications | SA |
+| `BABATOTALNSAUS` | Total Business Applications | NSA |
+| `BAHBATOTALSAUS` | High-Propensity Business Applications | SA |
+| `BAHBATOTALNSAUS` | High-Propensity Business Applications | NSA |
 
-High-propensity = applications with a high likelihood of becoming an employer
-business (uses EIN, wages, third-party payroll).
+**Business Applications (BA)** count all EIN applications filed with the IRS,
+excluding certain low-transition-rate categories (agriculture, public
+administration, private households, civic organisations).
+
+**High-Propensity Business Applications (HBA)** are the subset of BA that have
+a high likelihood of becoming an employer business — typically those from a
+corporate entity, indicating planned wages, or operating in sectors with high
+formation rates (manufacturing, retail, health care, food service).
+
+### Industry-level — monthly, by NAICS sector
+
+Covers 19 NAICS sectors (e.g. Construction, Finance & Insurance, Health Care,
+Retail Trade). Each sector has a BA series and an HBA series, in either
+seasonally adjusted or not-seasonally-adjusted form depending on availability.
 
 ---
 
 ## Quick start
 
-### 1. Install
+### 1. Get a FRED API key (required)
 
-```bash
-pip install -e .
-# or, without editable install:
-pip install -r requirements.txt
-```
-
-> Python 3.10+ required.
-
-### 2. Run the Shiny app
-
-```bash
-shiny run app.py
-```
-
-Then open **http://localhost:8000** in your browser, paste your FRED API key
-in the sidebar, and click **Fetch / Refresh Data**.
-
-### 3. Use as a Python library
-
-```python
-from fred_biz_apps import BFSDownloader
-
-dl = BFSDownloader(
-    api_key="YOUR_FRED_API_KEY",
-    cache_dir="bfs_cache",   # omit to disable local caching
-)
-
-# All aggregate series as a single wide DataFrame
-totals = dl.get_totals(start="2010-01-01")
-
-# Industry-level, just business applications
-industry_ba = dl.get_by_industry(series_type="ba")
-
-# Industry-level, just high-propensity
-industry_hba = dl.get_by_industry(series_type="hba")
-
-# Everything at once
-data = dl.get_all(start="2006-01-01")
-# data["totals"], data["industry_ba"], data["industry_hba"]
-```
-
-### 4. Generate static HTML charts (no Shiny needed)
-
-```bash
-python download_and_chart.py --api-key YOUR_KEY --start 2006-01-01 --out charts/
-# Opens each .html file in any browser
-```
-
----
-
-## Shiny app features
-
-| Feature | Detail |
-|---|---|
-| Date range picker | Any start + end date |
-| Totals tab | Choose any combination of the 6 aggregate series |
-| Industry tab | Select **All** or N specific industries via multi-select text search |
-| Series type | Toggle between Business Applications and High-Propensity |
-| Chart type | Level or Year-over-Year % Change |
-| Bar chart | Latest 4-period average across industries |
-| Data table | Filtered, formatted table of the active dataset |
-| Full-screen | Each chart card has a full-screen button |
-| Caching | Data cached locally as Parquet; click Refresh to re-download |
-
----
-
-## Admin / setup tasks you need to do
-
-### A. Get a FRED API Key (free, 2 minutes)
+A FRED API key is **required** to download any data. The key is free:
 
 1. Go to <https://fredaccount.stlouisfed.org/login/secure/>
-2. Create a free account (or log in).
-3. Under **My Account → API Keys**, request a new key.
+2. Create a free account (or sign in to an existing one).
+3. Navigate to **My Account → API Keys** and click **Request API Key**.
 4. Copy the key — it looks like `03de7b9f3cc1a2e003e5b7fee40f5774`.
 
-You can pass it at runtime (via the sidebar) or set it once as an environment
-variable so the app pre-fills:
+You can enter the key in the app sidebar each time, or set it as an environment
+variable so the app pre-fills it automatically:
 
 ```bash
-export FRED_API_KEY="03de7b9f3cc1a2e003e5b7fee40f5774"
-shiny run app.py
+export FRED_API_KEY="your_key_here"
 ```
 
-### B. Python environment
+### 2. Install dependencies
 
 ```bash
 python -m venv .venv
@@ -120,33 +67,101 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### C. (Optional) Deploy to shinyapps.io
+> Python 3.10+ required.
 
-1. Install rsconnect-python:
-   ```bash
-   pip install rsconnect-python
-   ```
-2. Authorise:
-   ```bash
-   rsconnect add --account YOUR_ACCOUNT --name shinyapps --token TOKEN --secret SECRET
-   ```
-   (Tokens are in your shinyapps.io dashboard → Account → Tokens)
-3. Deploy:
-   ```bash
-   rsconnect deploy shiny . --name shinyapps --title "FRED Business Applications"
-   ```
-4. Set the `FRED_API_KEY` environment variable inside the shinyapps.io dashboard
-   (Apps → your-app → Vars) so users don't need to type the key.
-
-### D. (Optional) Deploy to Posit Connect / your own server
+### 3. Launch the Shiny app
 
 ```bash
-# Posit Connect
+shiny run app.py
+```
+
+Then open **http://localhost:8000** in your browser.
+
+1. Paste your FRED API key into the **FRED API Key** field in the left sidebar.
+2. Click **Fetch / Refresh Data**.
+3. Once data loads, explore the **Totals**, **By Industry**, and **Data Table** tabs.
+
+To pre-fill the key automatically, set the environment variable before running:
+
+```bash
+FRED_API_KEY="your_key_here" shiny run app.py
+```
+
+---
+
+## App features
+
+| Feature | Detail |
+|---|---|
+| **Totals tab** | Time-series chart of the four national aggregate series with a configurable series filter |
+| **By Industry tab** | Multi-select industries; choose "All" to overlay national totals, or pick specific NAICS sectors |
+| **Series type** | Toggle between Business Applications and High-Propensity Business Applications |
+| **Chart type** | Level or Year-over-Year % Change |
+| **3-month MA overlay** | Optional moving-average line on level charts |
+| **Date range** | Configurable start and end date applied across all views |
+| **Data Table tab** | Filterable table of the active dataset with a **Download CSV** button |
+| **Full-screen** | Each chart card can be expanded to full-screen |
+| **Local cache** | Data is cached as Parquet files in `bfs_cache/`; click Refresh to re-download |
+
+---
+
+## Use as a Python library
+
+```python
+from fred_biz_apps import BFSDownloader
+
+dl = BFSDownloader(
+    api_key="your_key_here",
+    cache_dir="bfs_cache",   # omit to disable caching
+)
+
+# National totals as a wide DataFrame (date index, one column per series)
+totals = dl.get_totals(start="2010-01-01")
+
+# Industry-level business applications
+industry_ba = dl.get_by_industry(series_type="ba")
+
+# Industry-level high-propensity
+industry_hba = dl.get_by_industry(series_type="hba")
+
+# All datasets at once
+data = dl.get_all(start="2006-01-01")
+# data["totals"], data["industry_ba"], data["industry_hba"]
+```
+
+---
+
+## Generate static HTML charts (no Shiny)
+
+```bash
+python download_and_chart.py --api-key your_key_here --start 2006-01-01 --out charts/
+```
+
+Each output `.html` file opens in any browser with no server required.
+
+---
+
+## Deployment
+
+### shinyapps.io
+
+```bash
+pip install rsconnect-python
+rsconnect add --account YOUR_ACCOUNT --name shinyapps --token TOKEN --secret SECRET
+rsconnect deploy shiny . --name shinyapps --title "FRED Business Applications"
+```
+
+Set `FRED_API_KEY` in your app's environment variables (Apps → your-app → Vars)
+so users don't need to enter the key manually.
+
+### Posit Connect / self-hosted
+
+```bash
 rsconnect deploy shiny . --server https://your-connect-server --api-key CONNECT_KEY
 ```
 
-For any self-hosted deployment, set `FRED_API_KEY` as a server environment
-variable and the sidebar will pre-populate automatically.
+Set `FRED_API_KEY` as a server environment variable and the sidebar will
+pre-populate automatically.
 
 ---
 
@@ -156,11 +171,11 @@ variable and the sidebar will pre-populate automatically.
 business-applications/
 ├── fred_biz_apps/
 │   ├── __init__.py       # public API
-│   ├── client.py         # thin FRED HTTP client
-│   ├── catalog.py        # all known series IDs & metadata
+│   ├── client.py         # FRED HTTP client
+│   ├── catalog.py        # all series IDs and metadata
 │   ├── downloader.py     # BFSDownloader (fetch + cache)
 │   └── charts.py         # Plotly chart helpers
-├── app.py                # Shiny for Python app
+├── app.py                # Shiny for Python dashboard
 ├── download_and_chart.py # standalone CLI script
 ├── requirements.txt
 └── pyproject.toml
@@ -168,10 +183,21 @@ business-applications/
 
 ---
 
-## Notes on data availability
+## Known issues
 
-* Industry-level series are **quarterly and not seasonally adjusted**.
-  The aggregate (total) series also come in weekly and seasonally-adjusted forms.
-* FRED series availability may change over time. If a series returns no data
-  the downloader silently skips it.
-* Data typically has a ~2-week lag from the current date.
+- **Charts may not render after the initial data fetch.** If the Totals or
+  By Industry chart appears blank after clicking **Fetch / Refresh Data**,
+  toggle one of the checkboxes under **Series to Display** in the sidebar
+  (uncheck then re-check any item). This forces the chart to redraw. This is
+  a known bug and will be fixed in a future release.
+
+---
+
+## Notes
+
+- Data typically lags the current date by ~2 weeks.
+- If a FRED series returns no data (e.g. a sector with limited availability),
+  the downloader silently skips it rather than raising an error.
+- All series are monthly and national (United States).
+- Source: [U.S. Census Bureau Business Formation Statistics](https://www.census.gov/econ/bfs/index.html)
+  via [FRED, Federal Reserve Bank of St. Louis](https://fred.stlouisfed.org/).
