@@ -17,10 +17,43 @@ import plotly.express as px
 _PALETTE = px.colors.qualitative.Safe
 
 
+_SOURCE_NOTE = (
+    "Source: U.S. Census Bureau, Business Formation Statistics, "
+    "retrieved from FRED, Federal Reserve Bank of St. Louis"
+)
+
+
 def _ensure_datetime_index(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.index = pd.to_datetime(df.index)
     return df
+
+
+def _infer_ma_window(df: pd.DataFrame) -> int:
+    """Return a ~3-month rolling window appropriate for the data's frequency."""
+    if len(df) < 3:
+        return 3
+    gaps = df.index.to_series().diff().dropna()
+    median_days = gaps.median().days
+    if median_days <= 10:
+        return 13   # weekly  → 13 weeks ≈ 3 months
+    elif median_days <= 35:
+        return 3    # monthly → 3 months
+    else:
+        return 1    # quarterly → 1 quarter (= 3 months; shown but minimal smoothing)
+
+
+def _add_source_annotation(fig: go.Figure) -> None:
+    """Append the standard FRED/Census source note to a figure."""
+    fig.add_annotation(
+        text=_SOURCE_NOTE,
+        xref="paper", yref="paper",
+        x=0, y=-0.12,
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="left",
+        xanchor="left",
+    )
 
 
 def time_series_chart(
@@ -32,6 +65,7 @@ def time_series_chart(
     end: str | None = None,
     mode: str = "lines",
     show_range_selector: bool = True,
+    show_ma: bool = False,
 ) -> go.Figure:
     """
     Multi-line time series chart.
@@ -52,6 +86,8 @@ def time_series_chart(
         Plotly trace mode – "lines", "lines+markers", "markers".
     show_range_selector : bool
         Add a time-range selector / slider to the x-axis.
+    show_ma : bool
+        Overlay a 3-month moving average as a dashed line in the same colour.
     """
     df = _ensure_datetime_index(df)
 
@@ -63,20 +99,41 @@ def time_series_chart(
     cols = list(columns) if columns is not None else list(df.columns)
     cols = [c for c in cols if c in df.columns]
 
+    ma_window = _infer_ma_window(df) if show_ma else 1
+
     fig = go.Figure()
     for i, col in enumerate(cols):
         colour = _PALETTE[i % len(_PALETTE)]
         series = df[col].dropna()
+
+        # Level trace
         fig.add_trace(
             go.Scatter(
                 x=series.index,
                 y=series.values,
                 name=col,
+                legendgroup=col,
                 mode=mode,
                 line=dict(color=colour, width=2),
                 hovertemplate="%{x|%Y-%m-%d}<br>%{y:,.0f}<extra>" + col + "</extra>",
             )
         )
+
+        # 3-month MA trace (same colour, dashed)
+        if show_ma and ma_window > 1:
+            ma = series.rolling(window=ma_window, min_periods=1).mean()
+            fig.add_trace(
+                go.Scatter(
+                    x=ma.index,
+                    y=ma.values,
+                    name=f"{col} (3M MA)",
+                    legendgroup=col,
+                    showlegend=True,
+                    mode="lines",
+                    line=dict(color=colour, width=1.5, dash="dash"),
+                    hovertemplate="%{x|%Y-%m-%d}<br>%{y:,.0f}<extra>" + col + " (3M MA)</extra>",
+                )
+            )
 
     xaxis_cfg: dict = dict(title="Date")
     if show_range_selector:
@@ -104,8 +161,9 @@ def time_series_chart(
         ),
         hovermode="x unified",
         template="plotly_white",
-        margin=dict(l=60, r=180, t=60, b=60),
+        margin=dict(l=60, r=180, t=60, b=80),
     )
+    _add_source_annotation(fig)
     return fig
 
 
@@ -206,6 +264,7 @@ def yoy_change_chart(
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.01),
-        margin=dict(l=60, r=180, t=60, b=60),
+        margin=dict(l=60, r=180, t=60, b=80),
     )
+    _add_source_annotation(fig)
     return fig

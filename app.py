@@ -75,6 +75,14 @@ def _sidebar() -> ui.Tag:
             choices={"level": "Level", "yoy": "Year-over-Year % Change"},
             selected="level",
         ),
+        ui.panel_conditional(
+            "input.chart_type === 'level'",
+            ui.input_checkbox(
+                "show_ma",
+                "Overlay 3-month moving average",
+                value=False,
+            ),
+        ),
         ui.hr(),
         # --- Totals filter (shown only on Totals tab) ---
         ui.panel_conditional(
@@ -257,7 +265,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                    title="Business Applications – YoY % Change")
         else:
             fig = time_series_chart(df, columns=sel, start=start, end=end,
-                                    title="Business Applications Over Time")
+                                    title="Business Applications Over Time",
+                                    show_ma=bool(input.show_ma()))
 
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
@@ -283,7 +292,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                    title=f"{series_type_label} by Industry – YoY % Change")
         else:
             fig = time_series_chart(df, start=start, end=end,
-                                    title=f"{series_type_label} by Industry")
+                                    title=f"{series_type_label} by Industry",
+                                    show_ma=bool(input.show_ma()))
 
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
@@ -311,7 +321,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                    title=f"{series_type_label} by Industry – YoY % Change (All)")
         else:
             fig = time_series_chart(df, start=start, end=end,
-                                    title=f"{series_type_label} by Industry Over Time (All)")
+                                    title=f"{series_type_label} by Industry Over Time (All)",
+                                    show_ma=bool(input.show_ma()))
 
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
