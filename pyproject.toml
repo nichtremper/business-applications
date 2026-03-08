@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "fred-biz-apps"
+version = "0.1.0"
+description = "Download and visualize FRED Business Formation Statistics (BFS) data"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "pandas>=2.0",
+    "plotly>=5.18",
+    "shiny>=0.9",
+    "shinyswatch>=0.5",
+    "faicons>=0.2",
+    "python-dateutil>=2.8",
+    "pyarrow>=14.0",   # fast parquet caching
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpretty"]
+
+[tool.setuptools.packages.find]
+include = ["fred_biz_apps*"]
