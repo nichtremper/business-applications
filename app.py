@@ -22,7 +22,6 @@ from shiny.types import NavSetArg
 from fred_biz_apps import BFSDownloader
 from fred_biz_apps.catalog import INDUSTRY_NAMES
 from fred_biz_apps.charts import (
-    bar_chart_latest,
     time_series_chart,
     yoy_change_chart,
 )
@@ -136,7 +135,7 @@ app_ui = ui.page_navbar(
             full_screen=True,
         ),
         ui.card(
-            ui.card_header("Latest Average (4 Periods) by Industry"),
+            ui.card_header("Business Applications by Industry Over Time (All Industries)"),
             ui.output_ui("plot_bar_industry"),
             full_screen=True,
         ),
@@ -290,19 +289,30 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
 
     @render.ui
     def plot_bar_industry():
-        df = _active_industry_df()
+        data = _data()
+        if data is None:
+            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
+
+        # Always show ALL industries in this chart regardless of the industry selector
+        key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
+        df = data.get(key, pd.DataFrame())
         if df.empty:
             return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
 
+        start, end = _date_range()
         series_type_label = (
             "High-Propensity Business Applications"
             if input.ind_type() == "hba"
             else "Business Applications"
         )
-        fig = bar_chart_latest(
-            df,
-            title=f"Latest Average {series_type_label} by Industry",
-        )
+
+        if input.chart_type() == "yoy":
+            fig = yoy_change_chart(df, start=start, end=end,
+                                   title=f"{series_type_label} by Industry – YoY % Change (All)")
+        else:
+            fig = time_series_chart(df, start=start, end=end,
+                                    title=f"{series_type_label} by Industry Over Time (All)")
+
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
     # ------------------------------------------------------------------
