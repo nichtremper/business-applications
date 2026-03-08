@@ -183,6 +183,16 @@ business-applications/
 
 ---
 
+## Known issues
+
+- **Charts may not render after the initial data fetch.** If the Totals or
+  By Industry chart appears blank after clicking **Fetch / Refresh Data**,
+  toggle one of the checkboxes under **Series to Display** in the sidebar
+  (uncheck then re-check any item). This forces the chart to redraw. This is
+  a known bug and will be fixed in a future release.
+
+---
+
 ## Notes
 
 - Data typically lags the current date by ~2 weeks.
