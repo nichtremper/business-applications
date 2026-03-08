@@ -50,7 +50,7 @@ A FRED API key is **required** to download any data. The key is free:
 1. Go to <https://fredaccount.stlouisfed.org/login/secure/>
 2. Create a free account (or sign in to an existing one).
 3. Navigate to **My Account → API Keys** and click **Request API Key**.
-4. Copy the key — it looks like `03de7b9f3cc1a2e003e5b7fee40f5774`.
+4. Copy the key.
 
 You can enter the key in the app sidebar each time, or set it as an environment
 variable so the app pre-fills it automatically:
