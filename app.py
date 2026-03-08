@@ -82,9 +82,9 @@ def _sidebar() -> ui.Tag:
             ),
         ),
         ui.hr(),
-        # --- Totals filter (shown only on Totals tab) ---
+        # --- Totals filter (shown on Totals tab or Industry tab when "All" selected) ---
         ui.panel_conditional(
-            "input.tabs === 'totals'",
+            "input.tabs === 'totals' || (input.tabs === 'industry' && input.industry_sel && input.industry_sel.indexOf('All') > -1)",
             ui.h6("Series to Display"),
             ui.input_checkbox_group(
                 "total_series_sel",
@@ -138,11 +138,6 @@ app_ui = ui.page_navbar(
         ui.card(
             ui.card_header("Business Applications by Industry"),
             ui.output_ui("plot_industry"),
-            full_screen=True,
-        ),
-        ui.card(
-            ui.card_header("Business Applications by Industry Over Time (All Industries)"),
-            ui.output_ui("plot_bar_industry"),
             full_screen=True,
         ),
         value="industry",
@@ -222,13 +217,23 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         data = _data()
         if data is None:
             return pd.DataFrame()
-        key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
-        df = data.get(key, pd.DataFrame())
-        if df.empty:
-            return df
 
         sel = list(input.industry_sel())
         if not sel or "All" in sel:
+            # Mirror the Totals tab: show total series filtered by total_series_sel
+            df = data.get("totals", pd.DataFrame())
+            if df.empty:
+                return df
+            total_sel = list(input.total_series_sel())
+            if total_sel:
+                valid = [s for s in total_sel if s in df.columns]
+                if valid:
+                    return df[valid]
+            return df
+
+        key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
+        df = data.get(key, pd.DataFrame())
+        if df.empty:
             return df
 
         valid = [s for s in sel if s in df.columns]
@@ -291,35 +296,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         else:
             fig = time_series_chart(df, start=start, end=end,
                                     title=f"{series_type_label} by Industry",
-                                    show_ma=bool(input.show_ma()))
-
-        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
-
-    @render.ui
-    def plot_bar_industry():
-        data = _data()
-        if data is None:
-            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
-
-        # Always show ALL industries in this chart regardless of the industry selector
-        key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
-        df = data.get(key, pd.DataFrame())
-        if df.empty:
-            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
-
-        start, end = _date_range()
-        series_type_label = (
-            "High-Propensity Business Applications"
-            if input.ind_type() == "hba"
-            else "Business Applications"
-        )
-
-        if input.chart_type() == "yoy":
-            fig = yoy_change_chart(df, start=start, end=end,
-                                   title=f"{series_type_label} by Industry – YoY % Change (All)")
-        else:
-            fig = time_series_chart(df, start=start, end=end,
-                                    title=f"{series_type_label} by Industry Over Time (All)",
                                     show_ma=bool(input.show_ma()))
 
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
