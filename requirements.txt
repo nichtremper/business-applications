@@ -1,0 +1,14 @@
+# Core
+requests>=2.31
+pandas>=2.0
+plotly>=5.18
+pyarrow>=14.0
+python-dateutil>=2.8
+
+# Shiny for Python app
+shiny>=0.9
+shinyswatch>=0.5
+faicons>=0.2
+
+# Optional: faster parquet
+pyarrow>=14.0
