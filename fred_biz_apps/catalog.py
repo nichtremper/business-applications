@@ -124,8 +124,8 @@ _INDUSTRY_RAW: list[dict] = [
     {
         "naics": "4849",
         "label": "Transportation & Warehousing",
-        "ba_id":  "BABANAICSTRANSAUS",
-        "hba_id": "BAHBANAICSTRANSAUS",
+        "ba_id":  "BABANAICSTWSAUS",
+        "hba_id": "BAHBANAICSTWNSAUS",
     },
     {
         "naics": "51",
