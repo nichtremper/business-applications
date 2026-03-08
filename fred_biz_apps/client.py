@@ -7,6 +7,7 @@ live in downloader.py.
 
 from __future__ import annotations
 
+import threading
 import time
 import logging
 from typing import Any
@@ -23,7 +24,14 @@ class FREDClient:
     def __init__(self, api_key: str, timeout: int = 30):
         self.api_key = api_key
         self.timeout = timeout
-        self._session = requests.Session()
+        self._local = threading.local()
+
+    @property
+    def _session(self) -> requests.Session:
+        """Return a per-thread Session so concurrent fetches don't share state."""
+        if not hasattr(self._local, "session"):
+            self._local.session = requests.Session()
+        return self._local.session
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 
@@ -136,12 +137,18 @@ class BFSDownloader:
         Returns a wide DataFrame where each column is one series, indexed by date.
         The column names are human-readable labels (not raw FRED IDs).
         """
-        frames: dict[str, pd.Series] = {}
-        for sid, meta in TOTAL_SERIES.items():
+        def _fetch(item):
+            sid, meta = item
             logger.info("Fetching %s …", sid)
-            s = self._fetch_series(sid, start=start, end=end)
-            if not s.empty:
-                frames[meta["label"]] = s
+            return meta["label"], self._fetch_series(sid, start=start, end=end)
+
+        frames: dict[str, pd.Series] = {}
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_fetch, item): item for item in TOTAL_SERIES.items()}
+            for future in as_completed(futures):
+                label, s = future.result()
+                if not s.empty:
+                    frames[label] = s
 
         if not frames:
             return pd.DataFrame()
@@ -172,18 +179,27 @@ class BFSDownloader:
         ba_frames: dict[str, pd.Series] = {}
         hba_frames: dict[str, pd.Series] = {}
 
+        # Build list of (kind, industry, series_id) tasks to run in parallel
+        tasks: list[tuple[str, str, str]] = []
         for industry, ids in INDUSTRY_SERIES.items():
             if series_type in ("ba", "both"):
-                logger.info("Fetching BA  %s …", ids["ba_id"])
-                s = self._fetch_series(ids["ba_id"], start=start, end=end)
-                if not s.empty:
-                    ba_frames[industry] = s
-
+                tasks.append(("ba", industry, ids["ba_id"]))
             if series_type in ("hba", "both"):
-                logger.info("Fetching HBA %s …", ids["hba_id"])
-                s = self._fetch_series(ids["hba_id"], start=start, end=end)
+                tasks.append(("hba", industry, ids["hba_id"]))
+
+        def _fetch(kind: str, industry: str, sid: str):
+            logger.info("Fetching %s %s …", kind.upper(), sid)
+            return kind, industry, self._fetch_series(sid, start=start, end=end)
+
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            futures = {pool.submit(_fetch, *t): t for t in tasks}
+            for future in as_completed(futures):
+                kind, industry, s = future.result()
                 if not s.empty:
-                    hba_frames[industry] = s
+                    if kind == "ba":
+                        ba_frames[industry] = s
+                    else:
+                        hba_frames[industry] = s
 
         def _build(frames: dict) -> pd.DataFrame:
             if not frames:
