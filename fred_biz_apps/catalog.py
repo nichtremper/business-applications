@@ -1,246 +1,225 @@
 """
 Catalog of FRED Business Formation Statistics (BFS) series.
 
-The Census Bureau releases BFS data weekly (business applications) and
-quarterly (seasonally-adjusted versions and high-propensity counts).
-FRED mirrors all of them.
-
 Series-ID naming convention used by FRED/Census:
-    BABA   = Business Application, Business Applications
-    HBABA  = High-propensity Business Application, Business Applications
-    TOTALS = Total (all industries)
-    <NN>   = 2-digit NAICS sector code
-    A/NQ   = Annually / Not Quarterly
+    BABA   = Business Applications
+    BAHBA  = High-Propensity Business Applications
+    NAICS  = North American Industry Classification System sector
     SA/NSA = Seasonally Adjusted / Not Seasonally Adjusted
-    US     = United States
+    AUS    = United States
 
-We keep two parallel dictionaries:
-    TOTAL_SERIES   – aggregate / "all industries" series
-    INDUSTRY_SERIES – dict keyed by human-readable industry name,
-                      each value is a dict with 'ba' and 'hba' keys
-                      (business apps / high-propensity business apps)
+Monthly aggregate series examples (confirmed on FRED):
+    BABATOTALSAUS   – Total BA, Monthly SA
+    BABATOTALNSAUS  – Total BA, Monthly NSA
+    BAHBATOTALSAUS  – Total HBA, Monthly SA
+    BAHBATOTALNSAUS – Total HBA, Monthly NSA
+
+Industry series follow: BABANAICS{code_or_abbrev}{SA|NS}AUS
+  e.g. BABANAICS52SAUS, BABANAICSMNFNSAUS, BABANAICSRETNSAUS
+HBA industry series: BAHBANAICS{code_or_abbrev}{SA|NS}AUS
 """
 
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Aggregate / "Total" series
+# Aggregate / "Total" series  (monthly, national)
 # ---------------------------------------------------------------------------
 
 TOTAL_SERIES: dict[str, dict] = {
-    # Weekly, not seasonally adjusted
+    # Monthly, seasonally adjusted
     "BABATOTALSAUS": {
-        "label": "Total Business Applications (Weekly, NSA)",
-        "type": "ba",
-        "frequency": "weekly",
-        "seasonal_adj": False,
-        "description": "Total business applications filed with the IRS, United States.",
-    },
-    # Weekly 4-week moving average, NSA
-    "BABATOTALMAVG4SAUS": {
-        "label": "Total Business Applications – 4-Week Moving Avg (NSA)",
-        "type": "ba",
-        "frequency": "weekly",
-        "seasonal_adj": False,
-        "description": "4-week moving average of total business applications.",
-    },
-    # Seasonally adjusted annual rate
-    "BABATOTALSASAUS": {
-        "label": "Total Business Applications (SA Annual Rate)",
+        "label": "Total Business Applications (SA)",
         "type": "ba",
         "frequency": "monthly",
         "seasonal_adj": True,
-        "description": "Seasonally adjusted annual rate of total business applications.",
+        "description": "Total business applications filed with the IRS, United States, seasonally adjusted.",
     },
-    # High-propensity, weekly, NSA
-    "HBABATOTALSAUS": {
-        "label": "High-Propensity Business Applications (Weekly, NSA)",
+    # Monthly, not seasonally adjusted
+    "BABATOTALNSAUS": {
+        "label": "Total Business Applications (NSA)",
+        "type": "ba",
+        "frequency": "monthly",
+        "seasonal_adj": False,
+        "description": "Total business applications filed with the IRS, United States, not seasonally adjusted.",
+    },
+    # High-propensity, monthly, SA
+    "BAHBATOTALSAUS": {
+        "label": "High-Propensity Business Applications (SA)",
         "type": "hba",
-        "frequency": "weekly",
+        "frequency": "monthly",
+        "seasonal_adj": True,
+        "description": (
+            "Business applications with a high propensity of becoming "
+            "an employer business, United States, seasonally adjusted."
+        ),
+    },
+    # High-propensity, monthly, NSA
+    "BAHBATOTALNSAUS": {
+        "label": "High-Propensity Business Applications (NSA)",
+        "type": "hba",
+        "frequency": "monthly",
         "seasonal_adj": False,
         "description": (
             "Business applications with a high propensity of becoming "
-            "an employer business, United States."
-        ),
-    },
-    # High-propensity, 4-week MA, NSA
-    "HBABATOTALMAVG4SAUS": {
-        "label": "High-Propensity Business Applications – 4-Week Moving Avg (NSA)",
-        "type": "hba",
-        "frequency": "weekly",
-        "seasonal_adj": False,
-        "description": "4-week moving average of high-propensity business applications.",
-    },
-    # High-propensity, seasonally adjusted annual rate
-    "HBABATOTALSASAUS": {
-        "label": "High-Propensity Business Applications (SA Annual Rate)",
-        "type": "hba",
-        "frequency": "monthly",
-        "seasonal_adj": True,
-        "description": (
-            "Seasonally adjusted annual rate of high-propensity "
-            "business applications, United States."
+            "an employer business, United States, not seasonally adjusted."
         ),
     },
 }
 
 # ---------------------------------------------------------------------------
-# Industry-level series (quarterly, not seasonally adjusted unless noted)
-# Industry series IDs encode the 2-digit NAICS code.
-# Census/FRED uses the pattern:
-#   BABA<NAICS>NQNSA  – Business Applications, <NAICS>, Not Quarterly (monthly?), NSA
-# The most consistently available set uses quarterly frequency.
+# Industry-level series (monthly, national)
+#
+# BA  series pattern : BABANAICS{code}SAUS  or BABANAICS{abbrev}NSAUS
+# HBA series pattern : BAHBANAICS{code}SAUS or BAHBANAICS{abbrev}NSAUS
+#
+# Multi-code NAICS sectors use text abbreviations on FRED:
+#   Manufacturing (31-33) → MNF
+#   Retail Trade  (44-45) → RET
+#   Transportation (48-49) → TRAN  (inferred from naming pattern)
 # ---------------------------------------------------------------------------
 
-# Each entry: naics_code -> {label, ba_id, hba_id, naics_desc}
 _INDUSTRY_RAW: list[dict] = [
     {
         "naics": "11",
         "label": "Agriculture, Forestry, Fishing & Hunting",
-        "ba_id": "BABA11NQNSA",
-        "hba_id": "HBABA11NQNSA",
+        "ba_id":  "BABANAICS11NSAUS",
+        "hba_id": "BAHBANAICS11NSAUS",
     },
     {
         "naics": "21",
         "label": "Mining, Quarrying & Oil and Gas Extraction",
-        "ba_id": "BABA21NQNSA",
-        "hba_id": "HBABA21NQNSA",
+        "ba_id":  "BABANAICS21SAUS",
+        "hba_id": "BAHBANAICS21SAUS",
     },
     {
         "naics": "22",
         "label": "Utilities",
-        "ba_id": "BABA22NQNSA",
-        "hba_id": "HBABA22NQNSA",
+        "ba_id":  "BABANAICS22NSAUS",
+        "hba_id": "BAHBANAICS22NSAUS",
     },
     {
         "naics": "23",
         "label": "Construction",
-        "ba_id": "BABA23NQNSA",
-        "hba_id": "HBABA23NQNSA",
+        "ba_id":  "BABANAICS23SAUS",
+        "hba_id": "BAHBANAICS23SAUS",
     },
     {
-        "naics": "31",
+        "naics": "3133",
         "label": "Manufacturing",
-        "ba_id": "BABA31NQNSA",
-        "hba_id": "HBABA31NQNSA",
+        "ba_id":  "BABANAICSMNFNSAUS",
+        "hba_id": "BAHBANAICSMNFNSAUS",
     },
     {
         "naics": "42",
         "label": "Wholesale Trade",
-        "ba_id": "BABA42NQNSA",
-        "hba_id": "HBABA42NQNSA",
+        "ba_id":  "BABANAICS42SAUS",
+        "hba_id": "BAHBANAICS42SAUS",
     },
     {
-        "naics": "44",
+        "naics": "4445",
         "label": "Retail Trade",
-        "ba_id": "BABA44NQNSA",
-        "hba_id": "HBABA44NQNSA",
+        "ba_id":  "BABANAICSRETNSAUS",
+        "hba_id": "BAHBANAICSRETNSAUS",
     },
     {
-        "naics": "48",
+        "naics": "4849",
         "label": "Transportation & Warehousing",
-        "ba_id": "BABA48NQNSA",
-        "hba_id": "HBABA48NQNSA",
+        "ba_id":  "BABANAICSTRANSAUS",
+        "hba_id": "BAHBANAICSTRANSAUS",
     },
     {
         "naics": "51",
         "label": "Information",
-        "ba_id": "BABA51NQNSA",
-        "hba_id": "HBABA51NQNSA",
+        "ba_id":  "BABANAICS51SAUS",
+        "hba_id": "BAHBANAICS51SAUS",
     },
     {
         "naics": "52",
         "label": "Finance & Insurance",
-        "ba_id": "BABA52NQNSA",
-        "hba_id": "HBABA52NQNSA",
+        "ba_id":  "BABANAICS52SAUS",
+        "hba_id": "BAHBANAICS52SAUS",
     },
     {
         "naics": "53",
         "label": "Real Estate & Rental and Leasing",
-        "ba_id": "BABA53NQNSA",
-        "hba_id": "HBABA53NQNSA",
+        "ba_id":  "BABANAICS53SAUS",
+        "hba_id": "BAHBANAICS53SAUS",
     },
     {
         "naics": "54",
         "label": "Professional, Scientific & Technical Services",
-        "ba_id": "BABA54NQNSA",
-        "hba_id": "HBABA54NQNSA",
+        "ba_id":  "BABANAICS54SAUS",
+        "hba_id": "BAHBANAICS54SAUS",
     },
     {
         "naics": "55",
         "label": "Management of Companies & Enterprises",
-        "ba_id": "BABA55NQNSA",
-        "hba_id": "HBABA55NQNSA",
+        "ba_id":  "BABANAICS55SAUS",
+        "hba_id": "BAHBANAICS55NSAUS",
     },
     {
         "naics": "56",
         "label": "Administrative & Support / Waste Management",
-        "ba_id": "BABA56NQNSA",
-        "hba_id": "HBABA56NQNSA",
+        "ba_id":  "BABANAICS56SAUS",
+        "hba_id": "BAHBANAICS56SAUS",
     },
     {
         "naics": "61",
         "label": "Educational Services",
-        "ba_id": "BABA61NQNSA",
-        "hba_id": "HBABA61NQNSA",
+        "ba_id":  "BABANAICS61SAUS",
+        "hba_id": "BAHBANAICS61SAUS",
     },
     {
         "naics": "62",
         "label": "Health Care & Social Assistance",
-        "ba_id": "BABA62NQNSA",
-        "hba_id": "HBABA62NQNSA",
+        "ba_id":  "BABANAICS62SAUS",
+        "hba_id": "BAHBANAICS62SAUS",
     },
     {
         "naics": "71",
         "label": "Arts, Entertainment & Recreation",
-        "ba_id": "BABA71NQNSA",
-        "hba_id": "HBABA71NQNSA",
+        "ba_id":  "BABANAICS71SAUS",
+        "hba_id": "BAHBANAICS71NSAUS",
     },
     {
         "naics": "72",
         "label": "Accommodation & Food Services",
-        "ba_id": "BABA72NQNSA",
-        "hba_id": "HBABA72NQNSA",
+        "ba_id":  "BABANAICS72SAUS",
+        "hba_id": "BAHBANAICS72NSAUS",
     },
     {
         "naics": "81",
         "label": "Other Services (excl. Public Administration)",
-        "ba_id": "BABA81NQNSA",
-        "hba_id": "HBABA81NQNSA",
-    },
-    {
-        "naics": "99",
-        "label": "Unclassified",
-        "ba_id": "BABA99NQNSA",
-        "hba_id": "HBABA99NQNSA",
+        "ba_id":  "BABANAICS81SAUS",
+        "hba_id": "BAHBANAICS81SAUS",
     },
 ]
 
 # Build the public INDUSTRY_SERIES dict keyed by human-readable label
 INDUSTRY_SERIES: dict[str, dict] = {
     entry["label"]: {
-        "naics": entry["naics"],
-        "ba_id": entry["ba_id"],
+        "naics":  entry["naics"],
+        "ba_id":  entry["ba_id"],
         "hba_id": entry["hba_id"],
     }
     for entry in _INDUSTRY_RAW
 }
 
-# Flat list of every series ID we know about
+# Flat dict of every series ID we know about
 SERIES_CATALOG: dict[str, dict] = {**TOTAL_SERIES}
 for entry in _INDUSTRY_RAW:
     SERIES_CATALOG[entry["ba_id"]] = {
-        "label": f"Business Applications – {entry['label']} (NSA)",
+        "label": f"Business Applications – {entry['label']}",
         "type": "ba",
-        "frequency": "quarterly",
-        "seasonal_adj": False,
+        "frequency": "monthly",
+        "seasonal_adj": entry["ba_id"].endswith("SAUS"),
         "naics": entry["naics"],
     }
     SERIES_CATALOG[entry["hba_id"]] = {
-        "label": f"High-Propensity Business Applications – {entry['label']} (NSA)",
+        "label": f"High-Propensity Business Applications – {entry['label']}",
         "type": "hba",
-        "frequency": "quarterly",
-        "seasonal_adj": False,
+        "frequency": "monthly",
+        "seasonal_adj": entry["hba_id"].endswith("SAUS"),
         "naics": entry["naics"],
     }
 

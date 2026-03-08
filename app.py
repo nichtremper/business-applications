@@ -37,12 +37,10 @@ _CACHE_DIR = "bfs_cache"
 
 # For aggregate panel the user picks from labelled series groups
 _TOTAL_SERIES_CHOICES = {
-    "Total Business Applications (Weekly, NSA)": "Total Business Applications (Weekly, NSA)",
-    "Total Business Applications – 4-Week Moving Avg (NSA)": "Total Business Applications – 4-Week Moving Avg (NSA)",
-    "Total Business Applications (SA Annual Rate)": "Total Business Applications (SA Annual Rate)",
-    "High-Propensity Business Applications (Weekly, NSA)": "High-Propensity Business Applications (Weekly, NSA)",
-    "High-Propensity Business Applications – 4-Week Moving Avg (NSA)": "High-Propensity Business Applications – 4-Week Moving Avg (NSA)",
-    "High-Propensity Business Applications (SA Annual Rate)": "High-Propensity Business Applications (SA Annual Rate)",
+    "Total Business Applications (SA)": "Total Business Applications (SA)",
+    "Total Business Applications (NSA)": "Total Business Applications (NSA)",
+    "High-Propensity Business Applications (SA)": "High-Propensity Business Applications (SA)",
+    "High-Propensity Business Applications (NSA)": "High-Propensity Business Applications (NSA)",
 }
 
 # ---------------------------------------------------------------------------
