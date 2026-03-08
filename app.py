@@ -145,7 +145,17 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "Data Table",
         ui.card(
-            ui.card_header("Raw Data"),
+            ui.card_header(
+                ui.div(
+                    "Raw Data",
+                    ui.download_button(
+                        "download_csv",
+                        "Download CSV",
+                        class_="btn-sm btn-outline-secondary",
+                    ),
+                    class_="d-flex justify-content-between align-items-center w-100",
+                )
+            ),
             ui.output_data_frame("data_table"),
         ),
         value="table",
@@ -219,25 +229,33 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             return pd.DataFrame()
 
         sel = list(input.industry_sel())
-        if not sel or "All" in sel:
-            # Mirror the Totals tab: show total series filtered by total_series_sel
-            df = data.get("totals", pd.DataFrame())
-            if df.empty:
-                return df
-            total_sel = list(input.total_series_sel())
-            if total_sel:
-                valid = [s for s in total_sel if s in df.columns]
-                if valid:
-                    return df[valid]
-            return df
+        industry_names = [s for s in sel if s != "All"]
+        include_totals = "All" in sel
 
-        key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
-        df = data.get(key, pd.DataFrame())
-        if df.empty:
-            return df
+        frames: list[pd.DataFrame] = []
 
-        valid = [s for s in sel if s in df.columns]
-        return df[valid] if valid else df
+        if include_totals:
+            totals_df = data.get("totals", pd.DataFrame())
+            if not totals_df.empty:
+                total_sel = list(input.total_series_sel())
+                if total_sel:
+                    valid_t = [s for s in total_sel if s in totals_df.columns]
+                    if valid_t:
+                        frames.append(totals_df[valid_t])
+                else:
+                    frames.append(totals_df)
+
+        if industry_names:
+            key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
+            ind_df = data.get(key, pd.DataFrame())
+            if not ind_df.empty:
+                valid_i = [s for s in industry_names if s in ind_df.columns]
+                if valid_i:
+                    frames.append(ind_df[valid_i])
+
+        if not frames:
+            return pd.DataFrame()
+        return frames[0] if len(frames) == 1 else pd.concat(frames, axis=1)
 
     # ------------------------------------------------------------------
     # Outputs – status
@@ -334,6 +352,33 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             display[col] = display[col].map(lambda x: f"{x:,.0f}" if pd.notna(x) else "")
 
         return render.DataGrid(display, filters=True, height="500px")
+
+    @render.download(filename=lambda: f"bfs_data_{date.today().isoformat()}.csv")
+    def download_csv():
+        data = _data()
+        if data is None:
+            yield ""
+            return
+
+        active_tab = input.tabs()
+        if active_tab == "totals":
+            df = data.get("totals", pd.DataFrame()).copy()
+            sel = list(input.total_series_sel())
+            if sel:
+                valid = [s for s in sel if s in df.columns]
+                if valid:
+                    df = df[valid]
+        else:
+            df = _active_industry_df().copy()
+
+        start, end = _date_range()
+        df.index = pd.to_datetime(df.index)
+        if start:
+            df = df[df.index >= start]
+        if end:
+            df = df[df.index <= end]
+
+        yield df.reset_index().rename(columns={"date": "Date"}).to_csv(index=False)
 
 
 # ---------------------------------------------------------------------------
