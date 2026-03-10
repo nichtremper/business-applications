@@ -234,11 +234,11 @@ def indexed_chart(
         colour = _PALETTE[i % len(_PALETTE)]
         series = df[col].dropna()
 
-        # Find the closest available date to base_dt
-        loc = series.index.get_indexer([base_dt], method="nearest")[0]
-        if loc < 0:
+        # Find the observation whose year-month matches the chosen base period
+        mask = (series.index.year == base_dt.year) & (series.index.month == base_dt.month)
+        if not mask.any():
             continue
-        base_val = series.iloc[loc]
+        base_val = series[mask].iloc[0]
         if pd.isna(base_val) or base_val == 0:
             continue
 
