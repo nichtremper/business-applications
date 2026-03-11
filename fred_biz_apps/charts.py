@@ -202,6 +202,112 @@ def bar_chart_latest(
     return fig
 
 
+def indexed_chart(
+    df: pd.DataFrame,
+    columns: Iterable[str] | None = None,
+    title: str = "Indexed Business Applications",
+    start: str | None = None,
+    end: str | None = None,
+    base_date: str | None = None,
+    show_range_selector: bool = True,
+) -> go.Figure:
+    """
+    Index chart: all series normalized to 100 at *base_date*.
+
+    Parameters
+    ----------
+    base_date : str, optional
+        YYYY-MM-DD string for the reference period.  The nearest available
+        observation date is used when an exact match is not found.
+        Defaults to the first observation in the data.
+    """
+    df = _ensure_datetime_index(df).sort_index()
+
+    cols = list(columns) if columns is not None else list(df.columns)
+    cols = [c for c in cols if c in df.columns]
+
+    base_dt = pd.to_datetime(base_date) if base_date else df.index[0]
+    base_label = base_dt.strftime("%B %Y")
+
+    fig = go.Figure()
+    for i, col in enumerate(cols):
+        colour = _PALETTE[i % len(_PALETTE)]
+        series = df[col].dropna()
+
+        # Find the observation whose year-month matches the chosen base period
+        mask = (series.index.year == base_dt.year) & (series.index.month == base_dt.month)
+        if not mask.any():
+            continue
+        base_val = series[mask].iloc[0]
+        if pd.isna(base_val) or base_val == 0:
+            continue
+
+        indexed = (series / base_val) * 100
+
+        if start:
+            indexed = indexed[indexed.index >= start]
+        if end:
+            indexed = indexed[indexed.index <= end]
+
+        fig.add_trace(
+            go.Scatter(
+                x=indexed.index,
+                y=indexed.values,
+                name=col,
+                mode="lines",
+                line=dict(color=colour, width=2),
+                hovertemplate="%{x|%Y-%m-%d}<br>%{y:.1f}<extra>" + col + "</extra>",
+            )
+        )
+
+    # Reference line at 100
+    fig.add_hline(y=100, line_dash="dash", line_color="gray", line_width=1)
+
+    xaxis_cfg: dict = dict(title="Date")
+    if show_range_selector:
+        xaxis_cfg["rangeselector"] = dict(
+            buttons=[
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(count=3, label="3Y", step="year", stepmode="backward"),
+                dict(count=5, label="5Y", step="year", stepmode="backward"),
+                dict(count=10, label="10Y", step="year", stepmode="backward"),
+                dict(step="all", label="All"),
+            ]
+        )
+        xaxis_cfg["rangeslider"] = dict(visible=False)
+
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18)),
+        xaxis=xaxis_cfg,
+        yaxis=dict(title=f"Index ({base_label} = 100)"),
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.01),
+        margin=dict(l=60, r=180, t=60, b=100),
+    )
+
+    # Explanatory note – updates dynamically with the chosen base period
+    fig.add_annotation(
+        text=f"Index: {base_label} = 100",
+        xref="paper", yref="paper",
+        x=0, y=-0.10,
+        showarrow=False,
+        font=dict(size=11, color="dimgray"),
+        align="left",
+        xanchor="left",
+    )
+    fig.add_annotation(
+        text=_SOURCE_NOTE,
+        xref="paper", yref="paper",
+        x=0, y=-0.16,
+        showarrow=False,
+        font=dict(size=10, color="gray"),
+        align="left",
+        xanchor="left",
+    )
+    return fig
+
+
 def yoy_change_chart(
     df: pd.DataFrame,
     columns: Iterable[str] | None = None,

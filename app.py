@@ -22,6 +22,7 @@ from shiny.types import NavSetArg
 from fred_biz_apps import BFSDownloader
 from fred_biz_apps.catalog import INDUSTRY_NAMES
 from fred_biz_apps.charts import (
+    indexed_chart,
     time_series_chart,
     yoy_change_chart,
 )
@@ -70,7 +71,11 @@ def _sidebar() -> ui.Tag:
         ui.input_radio_buttons(
             "chart_type",
             None,
-            choices={"level": "Level", "yoy": "Year-over-Year % Change"},
+            choices={
+                "level": "Level",
+                "yoy": "Year-over-Year % Change",
+                "indexed": "Indexed",
+            },
             selected="level",
         ),
         ui.panel_conditional(
@@ -79,6 +84,14 @@ def _sidebar() -> ui.Tag:
                 "show_ma",
                 "Overlay 3-month moving average",
                 value=False,
+            ),
+        ),
+        ui.panel_conditional(
+            "input.chart_type === 'indexed'",
+            ui.input_date(
+                "index_base_date",
+                "Base month (= 100)",
+                value="2019-01-01",
             ),
         ),
         ui.hr(),
@@ -284,6 +297,10 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         if input.chart_type() == "yoy":
             fig = yoy_change_chart(df, columns=sel, start=start, end=end,
                                    title="Business Applications – YoY % Change")
+        elif input.chart_type() == "indexed":
+            fig = indexed_chart(df, columns=sel, start=start, end=end,
+                                title="Business Applications – Indexed",
+                                base_date=str(input.index_base_date()))
         else:
             fig = time_series_chart(df, columns=sel, start=start, end=end,
                                     title="Business Applications Over Time",
@@ -311,6 +328,10 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         if input.chart_type() == "yoy":
             fig = yoy_change_chart(df, start=start, end=end,
                                    title=f"{series_type_label} by Industry – YoY % Change")
+        elif input.chart_type() == "indexed":
+            fig = indexed_chart(df, start=start, end=end,
+                                title=f"{series_type_label} by Industry – Indexed",
+                                base_date=str(input.index_base_date()))
         else:
             fig = time_series_chart(df, start=start, end=end,
                                     title=f"{series_type_label} by Industry",
