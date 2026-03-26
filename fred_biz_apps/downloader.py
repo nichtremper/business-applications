@@ -32,6 +32,7 @@ from .catalog import (
     TOTAL_SERIES,
     INDUSTRY_SERIES,
     INDUSTRY_NAMES,
+    EMPLOYMENT_SERIES,
 )
 from .client import FREDClient
 
@@ -234,6 +235,118 @@ class BFSDownloader:
             "industry_ba": industry_ba,
             "industry_hba": industry_hba,
         }
+
+    def get_employment(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> pd.DataFrame:
+        """
+        Fetch CES employment series for all industries that have normalization data.
+
+        Returns a wide DataFrame keyed by FRED series ID (e.g. ``MANEMP``,
+        ``CES5552000001``), indexed by date.  Values are thousands of persons,
+        seasonally adjusted, as reported by BLS via FRED.
+        """
+        unique_ids = {sid for sid in EMPLOYMENT_SERIES.values() if sid is not None}
+
+        frames: dict[str, pd.Series] = {}
+
+        def _fetch(sid: str):
+            logger.info("Fetching employment series %s …", sid)
+            return sid, self._fetch_series(sid, start=start, end=end)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_fetch, sid): sid for sid in unique_ids}
+            for future in as_completed(futures):
+                sid, s = future.result()
+                if not s.empty:
+                    frames[sid] = s
+
+        if not frames:
+            return pd.DataFrame()
+        df = pd.DataFrame(frames)
+        df.index.name = "date"
+        return df
+
+    def get_normalized_rates(
+        self,
+        start: str | None = None,
+        end: str | None = None,
+        series_type: str = "ba",  # "ba" | "hba"
+    ) -> pd.DataFrame:
+        """
+        Business applications per 10,000 workers for each industry.
+
+        Employment series (from BLS CES via FRED) are in thousands of persons.
+        The rate formula accounts for that unit:
+
+            rate = BA_count / (employment_thousands × 1,000) × 10,000
+                 = BA_count × 10 / employment_thousands
+
+        Agriculture (NAICS 11) is excluded because the CES nonfarm payroll
+        survey does not cover agricultural workers.
+
+        Parameters
+        ----------
+        series_type : "ba" | "hba"
+            Which business-application series to normalize.
+
+        Returns
+        -------
+        DataFrame with one column per industry (18 max), indexed by date.
+        Values are applications per 10,000 workers.
+        """
+        ba_df = self.get_by_industry(start=start, end=end, series_type=series_type)
+        emp_df = self.get_employment(start=start, end=end)
+
+        if ba_df.empty or emp_df.empty:
+            return pd.DataFrame()
+
+        rate_frames: dict[str, pd.Series] = {}
+
+        for industry, emp_sid in EMPLOYMENT_SERIES.items():
+            if emp_sid is None:
+                # Agriculture – no CES employment coverage
+                continue
+            if industry not in ba_df.columns:
+                logger.warning(
+                    "No %s data for '%s'; skipping normalization.", series_type.upper(), industry
+                )
+                continue
+            if emp_sid not in emp_df.columns:
+                logger.warning(
+                    "Employment series %s not available for '%s'; skipping.", emp_sid, industry
+                )
+                continue
+
+            ba = ba_df[industry].copy()
+            emp = emp_df[emp_sid].copy()
+
+            # Align on calendar month – both series are monthly but may be
+            # stamped to different days-of-month by FRED.
+            ba.index = pd.to_datetime(ba.index).to_period("M")
+            emp.index = pd.to_datetime(emp.index).to_period("M")
+
+            aligned = pd.DataFrame({"ba": ba, "emp": emp}).dropna()
+            if aligned.empty:
+                logger.warning("No overlapping dates for '%s'; skipping.", industry)
+                continue
+
+            # Employment in thousands → total workers = emp × 1,000
+            # apps per 10,000 workers = BA / (emp × 1,000) × 10,000
+            #                         = BA × 10 / emp
+            rate = aligned["ba"] * 10.0 / aligned["emp"]
+            rate.index = rate.index.to_timestamp()
+            rate.name = industry
+            rate_frames[industry] = rate
+
+        if not rate_frames:
+            return pd.DataFrame()
+
+        result = pd.DataFrame(rate_frames)
+        result.index.name = "date"
+        return result
 
     def refresh_cache(self) -> None:
         """Delete cached files and re-download everything."""
