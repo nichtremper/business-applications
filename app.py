@@ -24,7 +24,6 @@ import plotly.graph_objects as go
 from fred_biz_apps import BFSDownloader, NORMALIZABLE_INDUSTRIES
 from fred_biz_apps.catalog import INDUSTRY_NAMES
 from fred_biz_apps.charts import (
-    bar_chart_latest,
     indexed_chart,
     time_series_chart,
     yoy_change_chart,
@@ -193,11 +192,6 @@ app_ui = ui.page_navbar(
                 )
             ),
             ui.output_ui("plot_normalized"),
-            full_screen=True,
-        ),
-        ui.card(
-            ui.card_header("Latest Rate by Industry (4-month average)"),
-            ui.output_ui("plot_normalized_bar"),
             full_screen=True,
         ),
         value="normalized",
@@ -459,29 +453,6 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                 show_ma=bool(input.show_ma()),
             )
 
-        _add_edu_note(fig)
-        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
-
-    @render.ui
-    def plot_normalized_bar():
-        df = _active_normalized_df()
-        if df.empty:
-            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
-
-        start, end = _date_range()
-        filtered = df.copy()
-        filtered.index = pd.to_datetime(filtered.index)
-        if start:
-            filtered = filtered[filtered.index >= start]
-        if end:
-            filtered = filtered[filtered.index <= end]
-
-        prefix = "High-Propensity " if input.norm_type() == "hba" else ""
-        fig = bar_chart_latest(
-            filtered,
-            title=f"Latest {prefix}Business Applications per 10,000 Workers (4-month avg)",
-            y_label="Apps per 10,000 Workers",
-        )
         _add_edu_note(fig)
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
