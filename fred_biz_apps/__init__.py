@@ -12,7 +12,7 @@ Quick start
 """
 
 from .client import FREDClient
-from .catalog import SERIES_CATALOG, INDUSTRY_SERIES, ALL_SERIES_IDS
+from .catalog import SERIES_CATALOG, INDUSTRY_SERIES, ALL_SERIES_IDS, NORMALIZABLE_INDUSTRIES
 from .downloader import BFSDownloader
 
 __all__ = [
@@ -20,5 +20,6 @@ __all__ = [
     "SERIES_CATALOG",
     "INDUSTRY_SERIES",
     "ALL_SERIES_IDS",
+    "NORMALIZABLE_INDUSTRIES",
     "BFSDownloader",
 ]

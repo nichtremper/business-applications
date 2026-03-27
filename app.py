@@ -19,9 +19,12 @@ import pandas as pd
 from shiny import App, Inputs, Outputs, Session, reactive, render, ui
 from shiny.types import NavSetArg
 
-from fred_biz_apps import BFSDownloader
+import plotly.graph_objects as go
+
+from fred_biz_apps import BFSDownloader, NORMALIZABLE_INDUSTRIES
 from fred_biz_apps.catalog import INDUSTRY_NAMES
 from fred_biz_apps.charts import (
+    bar_chart_latest,
     indexed_chart,
     time_series_chart,
     yoy_change_chart,
@@ -126,6 +129,26 @@ def _sidebar() -> ui.Tag:
                 options={"placeholder": "Type to search…"},
             ),
         ),
+        # --- Apps per Worker filter (shown only on normalized tab) ---
+        ui.panel_conditional(
+            "input.tabs === 'normalized'",
+            ui.h6("Series Type"),
+            ui.input_radio_buttons(
+                "norm_type",
+                None,
+                choices={"ba": "Business Applications", "hba": "High-Propensity"},
+                selected="ba",
+            ),
+            ui.h6("Industries"),
+            ui.input_selectize(
+                "norm_ind_sel",
+                None,
+                choices=NORMALIZABLE_INDUSTRIES,
+                selected=NORMALIZABLE_INDUSTRIES,
+                multiple=True,
+                options={"placeholder": "Type to search…"},
+            ),
+        ),
         width=320,
         open="desktop",
     )
@@ -154,6 +177,30 @@ app_ui = ui.page_navbar(
             full_screen=True,
         ),
         value="industry",
+    ),
+    ui.nav_panel(
+        "Apps per Worker",
+        ui.card(
+            ui.card_header(
+                ui.div(
+                    "Business Applications per 10,000 Workers – by Industry Over Time",
+                    ui.download_button(
+                        "download_normalized_csv",
+                        "Download CSV",
+                        class_="btn-sm btn-outline-secondary",
+                    ),
+                    class_="d-flex justify-content-between align-items-center w-100",
+                )
+            ),
+            ui.output_ui("plot_normalized"),
+            full_screen=True,
+        ),
+        ui.card(
+            ui.card_header("Latest Rate by Industry (4-month average)"),
+            ui.output_ui("plot_normalized_bar"),
+            full_screen=True,
+        ),
+        value="normalized",
     ),
     ui.nav_panel(
         "Data Table",
@@ -219,12 +266,19 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         try:
             dl = BFSDownloader(api_key=key, cache_dir=_CACHE_DIR)
             data = dl.get_all(start=start, end=end)
+            data["normalized_ba"] = dl.get_normalized_rates(
+                start=start, end=end, series_type="ba"
+            )
+            data["normalized_hba"] = dl.get_normalized_rates(
+                start=start, end=end, series_type="hba"
+            )
             _data.set(data)
             sizes = {k: len(v) for k, v in data.items() if isinstance(v, pd.DataFrame)}
+            norm_industries = len(data.get("normalized_ba", pd.DataFrame()).columns)
             _status.set(
                 f"Loaded. Totals: {sizes.get('totals', 0)} obs · "
                 f"Industry BA: {sizes.get('industry_ba', 0)} obs · "
-                f"Industry HBA: {sizes.get('industry_hba', 0)} obs"
+                f"Normalized: {norm_industries} industries"
             )
         except Exception as exc:
             _status.set(f"Error: {exc}")
@@ -338,6 +392,113 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                     show_ma=bool(input.show_ma()))
 
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    # ------------------------------------------------------------------
+    # Outputs – Apps per Worker tab
+    # ------------------------------------------------------------------
+
+    def _add_edu_note(fig: go.Figure) -> None:
+        """
+        Append the educational-services caveat annotation and expand the
+        bottom margin to accommodate it below the existing source note.
+        """
+        fig.add_annotation(
+            text=(
+                "† Educational Services: employment denominator is private sector only "
+                "(CES6561000001); public school workers excluded, causing rate to be overstated."
+            ),
+            xref="paper", yref="paper",
+            x=0, y=-0.22,
+            showarrow=False,
+            font=dict(size=9, color="gray"),
+            align="left",
+            xanchor="left",
+        )
+        fig.update_layout(margin=dict(b=120))
+
+    def _active_normalized_df() -> pd.DataFrame:
+        data = _data()
+        if data is None:
+            return pd.DataFrame()
+        key = "normalized_hba" if input.norm_type() == "hba" else "normalized_ba"
+        df = data.get(key, pd.DataFrame())
+        if df.empty:
+            return df
+        sel = list(input.norm_ind_sel())
+        if sel:
+            valid = [s for s in sel if s in df.columns]
+            if valid:
+                return df[valid]
+        return df
+
+    @render.ui
+    def plot_normalized():
+        df = _active_normalized_df()
+        if df.empty:
+            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
+
+        start, end = _date_range()
+        prefix = "High-Propensity " if input.norm_type() == "hba" else ""
+        title = f"{prefix}Business Applications per 10,000 Workers"
+        y_label = "Apps per 10,000 Workers"
+
+        if input.chart_type() == "yoy":
+            fig = yoy_change_chart(
+                df, start=start, end=end, title=f"{title} – YoY % Change"
+            )
+        elif input.chart_type() == "indexed":
+            fig = indexed_chart(
+                df, start=start, end=end,
+                title=f"{title} – Indexed",
+                base_date=str(input.index_base_date()),
+            )
+        else:
+            fig = time_series_chart(
+                df, start=start, end=end,
+                title=title, y_label=y_label,
+                show_ma=bool(input.show_ma()),
+            )
+
+        _add_edu_note(fig)
+        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    @render.ui
+    def plot_normalized_bar():
+        df = _active_normalized_df()
+        if df.empty:
+            return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
+
+        start, end = _date_range()
+        filtered = df.copy()
+        filtered.index = pd.to_datetime(filtered.index)
+        if start:
+            filtered = filtered[filtered.index >= start]
+        if end:
+            filtered = filtered[filtered.index <= end]
+
+        prefix = "High-Propensity " if input.norm_type() == "hba" else ""
+        fig = bar_chart_latest(
+            filtered,
+            title=f"Latest {prefix}Business Applications per 10,000 Workers (4-month avg)",
+            y_label="Apps per 10,000 Workers",
+        )
+        _add_edu_note(fig)
+        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    @render.download(filename=lambda: f"biz_apps_per_worker_{date.today().isoformat()}.csv")
+    def download_normalized_csv():
+        df = _active_normalized_df()
+        if df.empty:
+            yield ""
+            return
+        start, end = _date_range()
+        df = df.copy()
+        df.index = pd.to_datetime(df.index)
+        if start:
+            df = df[df.index >= start]
+        if end:
+            df = df[df.index <= end]
+        yield df.reset_index().rename(columns={"date": "Date"}).to_csv(index=False)
 
     # ------------------------------------------------------------------
     # Outputs – Data Table tab

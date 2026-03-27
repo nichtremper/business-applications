@@ -227,3 +227,56 @@ ALL_SERIES_IDS: list[str] = list(SERIES_CATALOG.keys())
 
 # Convenience: just the industry names in sorted order
 INDUSTRY_NAMES: list[str] = sorted(INDUSTRY_SERIES.keys())
+
+# ---------------------------------------------------------------------------
+# Employment series for normalization
+#
+# Source: BLS Current Employment Statistics (CES), retrieved via FRED.
+# All series: All Employees, Seasonally Adjusted, Thousands of Persons.
+#
+# Rate formula (accounts for employment being reported in thousands):
+#   apps_per_10k_workers = BA_count × 10 / employment_thousands
+#
+# Reconciliation notes:
+#   - Agriculture (NAICS 11): None — CES is a nonfarm payroll survey;
+#     agricultural workers are excluded by design. Industry omitted.
+#   - Mining (NAICS 21): USMINE = "All Employees: Mining and Logging".
+#     This super-sector bundles logging (technically NAICS 11) with
+#     mining (NAICS 21), making the employment denominator slightly too
+#     large and the rate slightly too low.
+#   - Educational Services (NAICS 61): CES6561000001 = "All Employees:
+#     Private Educational Services". Public-sector K-12 teachers,
+#     university faculty, and other government education workers are
+#     excluded, causing the denominator to understate total education
+#     employment and the normalized rate to be overstated. See chart note.
+# ---------------------------------------------------------------------------
+
+EMPLOYMENT_SERIES: dict[str, str | None] = {
+    # NAICS 11 – excluded (CES nonfarm only)
+    "Agriculture, Forestry, Fishing & Hunting":          None,
+    # NAICS 21 – "Mining and Logging"; denominator slightly too large
+    "Mining, Quarrying & Oil and Gas Extraction":        "USMINE",
+    "Utilities":                                          "USUTIL",
+    "Construction":                                       "USCONS",
+    "Manufacturing":                                      "MANEMP",
+    "Wholesale Trade":                                    "CES4142000001",
+    "Retail Trade":                                       "USTRADE",
+    "Transportation & Warehousing":                       "CES4300000001",
+    "Information":                                        "USINFO",
+    "Finance & Insurance":                                "CES5552000001",
+    "Real Estate & Rental and Leasing":                  "CES5553000001",
+    "Professional, Scientific & Technical Services":     "CES6054000001",
+    "Management of Companies & Enterprises":              "CES6055000001",
+    "Administrative & Support / Waste Management":        "CES6056000001",
+    # NAICS 61 – private sector only; rate is overstated (see note above)
+    "Educational Services":                               "CES6561000001",
+    "Health Care & Social Assistance":                    "CES6562000001",
+    "Arts, Entertainment & Recreation":                   "CES7071000001",
+    "Accommodation & Food Services":                      "CES7072000001",
+    "Other Services (excl. Public Administration)":       "USSERV",
+}
+
+# Industries for which employment normalization is available (Agriculture excluded)
+NORMALIZABLE_INDUSTRIES: list[str] = sorted(
+    industry for industry, sid in EMPLOYMENT_SERIES.items() if sid is not None
+)
