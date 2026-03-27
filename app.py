@@ -181,7 +181,17 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "Apps per Worker",
         ui.card(
-            ui.card_header("Business Applications per 10,000 Workers – by Industry Over Time"),
+            ui.card_header(
+                ui.div(
+                    "Business Applications per 10,000 Workers – by Industry Over Time",
+                    ui.download_button(
+                        "download_normalized_csv",
+                        "Download CSV",
+                        class_="btn-sm btn-outline-secondary",
+                    ),
+                    class_="d-flex justify-content-between align-items-center w-100",
+                )
+            ),
             ui.output_ui("plot_normalized"),
             full_screen=True,
         ),
@@ -474,6 +484,21 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         )
         _add_edu_note(fig)
         return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    @render.download(filename=lambda: f"biz_apps_per_worker_{date.today().isoformat()}.csv")
+    def download_normalized_csv():
+        df = _active_normalized_df()
+        if df.empty:
+            yield ""
+            return
+        start, end = _date_range()
+        df = df.copy()
+        df.index = pd.to_datetime(df.index)
+        if start:
+            df = df[df.index >= start]
+        if end:
+            df = df[df.index <= end]
+        yield df.reset_index().rename(columns={"date": "Date"}).to_csv(index=False)
 
     # ------------------------------------------------------------------
     # Outputs – Data Table tab
