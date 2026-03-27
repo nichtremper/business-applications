@@ -95,13 +95,129 @@ FRED_API_KEY="your_key_here" shiny run app.py
 |---|---|
 | **Totals tab** | Time-series chart of the four national aggregate series with a configurable series filter |
 | **By Industry tab** | Multi-select industries; choose "All" to overlay national totals, or pick specific NAICS sectors |
+| **Apps per Worker tab** | Business applications per 10,000 workers by industry — normalized for sector size to enable entrepreneurship comparisons; includes a **Download CSV** button |
 | **Series type** | Toggle between Business Applications and High-Propensity Business Applications |
-| **Chart type** | Level or Year-over-Year % Change |
+| **Chart type** | Level, Year-over-Year % Change, or Indexed (normalized to a user-selected base period) |
 | **3-month MA overlay** | Optional moving-average line on level charts |
 | **Date range** | Configurable start and end date applied across all views |
 | **Data Table tab** | Filterable table of the active dataset with a **Download CSV** button |
 | **Full-screen** | Each chart card can be expanded to full-screen |
 | **Local cache** | Data is cached as Parquet files in `bfs_cache/`; click Refresh to re-download |
+
+---
+
+## Apps per Worker — methodology and reconciliation
+
+The **Apps per Worker** tab normalizes business application counts by total
+employment in each industry, producing a rate that makes large and small
+sectors directly comparable.
+
+### Rate formula
+
+Employment series from BLS CES are reported in **thousands of persons**.
+The rate is expressed as **applications per 10,000 workers**:
+
+```
+rate = BA_count × 10 / employment_thousands
+```
+
+*Equivalently: `BA_count / (employment_thousands × 1,000) × 10,000`.*
+
+### Employment series used
+
+| Industry (NAICS) | FRED Employment Series | Notes |
+|---|---|---|
+| Agriculture, Forestry, Fishing & Hunting (11) | — | Excluded — see below |
+| Mining, Quarrying & Oil and Gas Extraction (21) | `USMINE` | See below |
+| Utilities (22) | `USUTIL` | Clean match |
+| Construction (23) | `USCONS` | Clean match |
+| Manufacturing (31–33) | `MANEMP` | Clean match |
+| Wholesale Trade (42) | `CES4142000001` | Clean match |
+| Retail Trade (44–45) | `USTRADE` | Clean match |
+| Transportation & Warehousing (48–49) | `CES4300000001` | Clean match |
+| Information (51) | `USINFO` | Clean match |
+| Finance & Insurance (52) | `CES5552000001` | Clean match |
+| Real Estate & Rental and Leasing (53) | `CES5553000001` | Clean match |
+| Professional, Scientific & Technical Services (54) | `CES6054000001` | Clean match |
+| Management of Companies & Enterprises (55) | `CES6055000001` | Clean match |
+| Administrative & Support / Waste Management (56) | `CES6056000001` | Clean match |
+| Educational Services (61) | `CES6561000001` | See below |
+| Health Care & Social Assistance (62) | `CES6562000001` | Clean match |
+| Arts, Entertainment & Recreation (71) | `CES7071000001` | Clean match |
+| Accommodation & Food Services (72) | `CES7072000001` | Clean match |
+| Other Services excl. Public Administration (81) | `USSERV` | Clean match |
+
+All employment series are from the **BLS Current Employment Statistics (CES)**
+establishment survey — seasonally adjusted, all employees, monthly, in
+thousands of persons.
+
+### Reconciliation decisions
+
+Three industries required reconciliation. Each decision is noted in
+`catalog.py` and annotated on the relevant chart.
+
+---
+
+**Agriculture (NAICS 11) — excluded**
+
+The CES is a *nonfarm* payroll survey. Agricultural workers are excluded
+from CES by definition, so there is no meaningful employment denominator
+for this sector. Business application data for Agriculture is available
+in the Totals and By Industry tabs but does not appear in the Apps per
+Worker tab.
+
+---
+
+**Mining, Quarrying & Oil and Gas Extraction (NAICS 21) — `USMINE`**
+
+`USMINE` = *"All Employees: Mining and Logging"* — a BLS super-sector that
+bundles NAICS 21 (mining) with logging, which is technically part of
+NAICS 11 (Agriculture, Forestry, Fishing & Hunting). A more granular
+mining-only series exists within the CES microdata but is not published
+as a standalone FRED series.
+
+**Effect:** the employment denominator is slightly too large (logging
+workers are included), making the normalized rate slightly lower than the
+true figure. The bias is small in practice — logging employment is a
+minor share of the combined series.
+
+---
+
+**Educational Services (NAICS 61) — `CES6561000001` (private sector only)**
+
+`CES6561000001` = *"All Employees: Private Educational Services"*. The
+CES establishment survey separates private and government employment;
+public-sector education workers (K-12 teachers, state university faculty,
+community college staff, etc.) are classified under government and do not
+appear in this series.
+
+NAICS 61 covers *all* educational services — public and private — so the
+business application numerator includes organizations across both sectors
+while the employment denominator covers private-sector workers only.
+
+**Effect:** the denominator understates true education-sector employment,
+causing the normalized rate to be **overstated** for this industry. A
+dagger (†) annotation is shown on every Apps per Worker chart as a
+reminder. Comparisons involving Educational Services should be treated
+with caution.
+
+---
+
+### Why these series and not the super-sectors?
+
+Several BLS super-sectors combine multiple NAICS codes that are tracked
+separately in the BFS data — for example, *Financial Activities*
+(`USFIRE`) bundles Finance & Insurance (52) with Real Estate (53), and
+*Professional and Business Services* (`USPBS`) bundles NAICS 54, 55,
+and 56. Using a super-sector as the denominator for one of its
+constituent industries would introduce a systematic bias: applications
+in one sub-sector would be divided by the employment of the combined
+sector, making all sub-sector rates artificially low.
+
+FRED publishes granular CES sector-level series for each of these
+industries individually (e.g. `CES5552000001` for Finance & Insurance,
+`CES5553000001` for Real Estate). These are used throughout so that each
+industry's rate reflects only that industry's own workforce.
 
 ---
 
@@ -127,6 +243,13 @@ industry_hba = dl.get_by_industry(series_type="hba")
 # All datasets at once
 data = dl.get_all(start="2006-01-01")
 # data["totals"], data["industry_ba"], data["industry_hba"]
+
+# Employment series (BLS CES, thousands of persons, SA)
+emp = dl.get_employment(start="2006-01-01")
+
+# Apps per 10,000 workers — one column per industry, 18 industries
+rates_ba  = dl.get_normalized_rates(series_type="ba")
+rates_hba = dl.get_normalized_rates(series_type="hba")
 ```
 
 ---
