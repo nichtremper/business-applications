@@ -13,8 +13,33 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
+from .catalog import INDUSTRY_NAMES, TOTAL_SERIES
+
 # A colour-blind-friendly discrete palette (12 colours)
 _PALETTE = px.colors.qualitative.Safe
+
+# ---------------------------------------------------------------------------
+# Stable colour map
+#
+# Colours are assigned by position in the *full* sorted master list of all
+# known series names, not by position in whatever subset is currently being
+# plotted.  This guarantees that a given industry always renders in the same
+# colour across every chart, tab, and selection state.
+# ---------------------------------------------------------------------------
+
+_ALL_KNOWN_NAMES: list[str] = sorted(INDUSTRY_NAMES) + [
+    meta["label"] for meta in TOTAL_SERIES.values()
+]
+
+_COLOR_MAP: dict[str, str] = {
+    name: _PALETTE[i % len(_PALETTE)]
+    for i, name in enumerate(_ALL_KNOWN_NAMES)
+}
+
+
+def _color_for(name: str, fallback_index: int = 0) -> str:
+    """Return the stable palette colour for *name*, or a fallback."""
+    return _COLOR_MAP.get(name, _PALETTE[fallback_index % len(_PALETTE)])
 
 
 _SOURCE_NOTE = (
@@ -103,7 +128,7 @@ def time_series_chart(
 
     fig = go.Figure()
     for i, col in enumerate(cols):
-        colour = _PALETTE[i % len(_PALETTE)]
+        colour = _color_for(col, i)
         series = df[col].dropna()
 
         # Level trace
@@ -180,7 +205,7 @@ def bar_chart_latest(
     df = _ensure_datetime_index(df).sort_index()
     recent = df.tail(n_periods).mean().sort_values(ascending=True)
 
-    colours = [_PALETTE[i % len(_PALETTE)] for i in range(len(recent))]
+    colours = [_color_for(name, i) for i, name in enumerate(recent.index)]
 
     fig = go.Figure(
         go.Bar(
@@ -231,7 +256,7 @@ def indexed_chart(
 
     fig = go.Figure()
     for i, col in enumerate(cols):
-        colour = _PALETTE[i % len(_PALETTE)]
+        colour = _color_for(col, i)
         series = df[col].dropna()
 
         # Find the observation whose year-month matches the chosen base period
@@ -347,7 +372,7 @@ def yoy_change_chart(
 
     fig = go.Figure()
     for i, col in enumerate(cols):
-        colour = _PALETTE[i % len(_PALETTE)]
+        colour = _color_for(col, i)
         s = yoy[col].dropna()
         fig.add_trace(
             go.Scatter(
