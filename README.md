@@ -8,6 +8,8 @@ hosted by the Federal Reserve Bank of St. Louis.
 > **A FRED API key is required.** It is free and takes about two minutes to
 > obtain — see [Get a FRED API key](#1-get-a-fred-api-key-required) below.
 
+Testing Windows compatability with git.
+
 ---
 
 ## What data is included?
