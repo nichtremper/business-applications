@@ -245,17 +245,8 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
     # Data fetch
     # ------------------------------------------------------------------
 
-    @reactive.effect
-    @reactive.event(input.fetch)
-    def _fetch():
-        key = input.api_key().strip()
-        if not key:
-            _status.set("Please enter a FRED API key.")
-            return
-
-        start = str(input.start_date())
-        end = str(input.end_date())
-
+    def _do_fetch(key: str, start: str, end: str) -> None:
+        """Execute a FRED data fetch with the given parameters (no reactive reads)."""
         _status.set("Downloading data from FRED…")
         try:
             dl = BFSDownloader(api_key=key, cache_dir=_CACHE_DIR)
@@ -277,9 +268,36 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
         except Exception as exc:
             _status.set(f"Error: {exc}")
 
+    @reactive.effect
+    @reactive.event(input.fetch)
+    def _fetch():
+        key = input.api_key().strip()
+        if not key:
+            _status.set("Please enter a FRED API key.")
+            return
+        _do_fetch(key, str(input.start_date()), str(input.end_date()))
+
+    @reactive.effect
+    def _auto_fetch_on_startup():
+        # All reads are isolated → this effect has no reactive dependencies
+        # and runs exactly once when the session starts.
+        with reactive.isolate():
+            key = input.api_key().strip()
+            start = str(input.start_date())
+            end = str(input.end_date())
+        if key:
+            _do_fetch(key, start, end)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _plotly_html(fig: go.Figure) -> ui.HTML:
+        """Render a Plotly figure to HTML and dispatch a resize event so the
+        chart reflows correctly when injected into a previously-empty container."""
+        html = fig.to_html(full_html=False, include_plotlyjs="cdn")
+        resize = "<script>setTimeout(()=>window.dispatchEvent(new Event('resize')),50);</script>"
+        return ui.HTML(html + resize)
 
     def _date_range() -> tuple[str, str]:
         return str(input.start_date()), str(input.end_date())
@@ -354,7 +372,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                     title="Business Applications Over Time",
                                     show_ma=bool(input.show_ma()))
 
-        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+        return _plotly_html(fig)
 
     # ------------------------------------------------------------------
     # Outputs – Industry tab
@@ -385,7 +403,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                                     title=f"{series_type_label} by Industry",
                                     show_ma=bool(input.show_ma()))
 
-        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+        return _plotly_html(fig)
 
     # ------------------------------------------------------------------
     # Outputs – Apps per Worker tab
@@ -454,7 +472,7 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             )
 
         _add_edu_note(fig)
-        return ui.HTML(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+        return _plotly_html(fig)
 
     @render.download(filename=lambda: f"biz_apps_per_worker_{date.today().isoformat()}.csv")
     def download_normalized_csv():
