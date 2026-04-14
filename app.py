@@ -12,7 +12,9 @@ Environment variable (alternative to typing key in the UI):
 from __future__ import annotations
 
 import os
+import re
 from datetime import date, datetime
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -33,7 +35,25 @@ from fred_biz_apps.charts import (
 # Constants
 # ---------------------------------------------------------------------------
 
-_DEFAULT_API_KEY = os.environ.get("FRED_API_KEY", "")
+
+def _load_fred_api_key() -> str:
+    """Return FRED_API_KEY from the environment, falling back to ~/.zshrc."""
+    key = os.environ.get("FRED_API_KEY", "")
+    if key:
+        return key
+    zshrc = Path.home() / ".zshrc"
+    if zshrc.is_file():
+        pattern = re.compile(
+            r"""^export\s+FRED_API_KEY\s*=\s*['"]?([^'"\s]+)['"]?\s*$""",
+            re.MULTILINE,
+        )
+        match = pattern.search(zshrc.read_text(errors="replace"))
+        if match:
+            return match.group(1)
+    return ""
+
+
+_DEFAULT_API_KEY = _load_fred_api_key()
 _DEFAULT_START = "2006-01-01"
 _DEFAULT_END = date.today().isoformat()
 _CACHE_DIR = "bfs_cache"
