@@ -161,7 +161,7 @@ class BFSDownloader:
         self,
         start: str | None = None,
         end: str | None = None,
-        series_type: str = "ba",  # "ba" | "hba" | "both"
+        series_type: str = "ba",  # "ba" | "hba" | "bf4" | "both"
     ) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
         """
         Download industry-level BFS series.
@@ -170,7 +170,7 @@ class BFSDownloader:
         ----------
         start, end : str
             Date strings in 'YYYY-MM-DD' format.
-        series_type : "ba" | "hba" | "both"
+        series_type : "ba" | "hba" | "bf4" | "both"
             Which set to download.  "both" returns a tuple (ba_df, hba_df).
 
         Returns
@@ -179,6 +179,7 @@ class BFSDownloader:
         """
         ba_frames: dict[str, pd.Series] = {}
         hba_frames: dict[str, pd.Series] = {}
+        bf4_frames: dict[str, pd.Series] = {}
 
         # Build list of (kind, industry, series_id) tasks to run in parallel
         tasks: list[tuple[str, str, str]] = []
@@ -187,6 +188,8 @@ class BFSDownloader:
                 tasks.append(("ba", industry, ids["ba_id"]))
             if series_type in ("hba", "both"):
                 tasks.append(("hba", industry, ids["hba_id"]))
+            if series_type == "bf4":
+                tasks.append(("bf4", industry, ids["bf4_id"]))
 
         def _fetch(kind: str, industry: str, sid: str):
             logger.info("Fetching %s %s …", kind.upper(), sid)
@@ -199,8 +202,10 @@ class BFSDownloader:
                 if not s.empty:
                     if kind == "ba":
                         ba_frames[industry] = s
-                    else:
+                    elif kind == "hba":
                         hba_frames[industry] = s
+                    else:
+                        bf4_frames[industry] = s
 
         def _build(frames: dict) -> pd.DataFrame:
             if not frames:
@@ -213,6 +218,8 @@ class BFSDownloader:
             return _build(ba_frames)
         if series_type == "hba":
             return _build(hba_frames)
+        if series_type == "bf4":
+            return _build(bf4_frames)
         return _build(ba_frames), _build(hba_frames)
 
     def get_all(
@@ -225,15 +232,18 @@ class BFSDownloader:
             "totals"       : aggregate series DataFrame
             "industry_ba"  : industry business applications DataFrame
             "industry_hba" : industry high-propensity DataFrame
+            "industry_bf4" : industry employer-within-4-quarters DataFrame
         """
         totals = self.get_totals(start=start, end=end)
         industry_ba, industry_hba = self.get_by_industry(
             start=start, end=end, series_type="both"
         )
+        industry_bf4 = self.get_by_industry(start=start, end=end, series_type="bf4")
         return {
             "totals": totals,
             "industry_ba": industry_ba,
             "industry_hba": industry_hba,
+            "industry_bf4": industry_bf4,
         }
 
     def get_employment(

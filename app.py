@@ -64,6 +64,8 @@ _TOTAL_SERIES_CHOICES = {
     "Total Business Applications (NSA)": "Total Business Applications (NSA)",
     "High-Propensity Business Applications (SA)": "High-Propensity Business Applications (SA)",
     "High-Propensity Business Applications (NSA)": "High-Propensity Business Applications (NSA)",
+    "Projected Employer Businesses within 4 Quarters (SA)": "Projected Employer Businesses within 4 Quarters (SA)",
+    "Projected Employer Businesses within 4 Quarters (NSA)": "Projected Employer Businesses within 4 Quarters (NSA)",
 }
 
 # ---------------------------------------------------------------------------
@@ -135,7 +137,11 @@ def _sidebar() -> ui.Tag:
             ui.input_radio_buttons(
                 "ind_type",
                 None,
-                choices={"ba": "Business Applications", "hba": "High-Propensity"},
+                choices={
+                    "ba": "Business Applications",
+                    "hba": "High-Propensity",
+                    "bf4": "Projected Employer w/in 4Q",
+                },
                 selected="ba",
             ),
             ui.h6("Industries"),
@@ -345,7 +351,9 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
                     frames.append(totals_df)
 
         if industry_names:
-            key = "industry_hba" if input.ind_type() == "hba" else "industry_ba"
+            key = {"hba": "industry_hba", "bf4": "industry_bf4"}.get(
+                input.ind_type(), "industry_ba"
+            )
             ind_df = data.get(key, pd.DataFrame())
             if not ind_df.empty:
                 valid_i = [s for s in industry_names if s in ind_df.columns]
@@ -405,11 +413,10 @@ def server(input: Inputs, output: Outputs, session: Session) -> None:
             return ui.p("No data. Click 'Fetch / Refresh Data'.", class_="text-muted p-3")
 
         start, end = _date_range()
-        series_type_label = (
-            "High-Propensity Business Applications"
-            if input.ind_type() == "hba"
-            else "Business Applications"
-        )
+        series_type_label = {
+            "hba": "High-Propensity Business Applications",
+            "bf4": "Projected Employer Businesses within 4 Quarters",
+        }.get(input.ind_type(), "Business Applications")
 
         if input.chart_type() == "yoy":
             fig = yoy_change_chart(df, start=start, end=end,
