@@ -64,6 +64,28 @@ TOTAL_SERIES: dict[str, dict] = {
             "an employer business, United States, not seasonally adjusted."
         ),
     },
+    # Employer within 4 quarters, monthly, SA
+    "BFPBF4QTOTALSAUS": {
+        "label": "Projected Employer Businesses within 4 Quarters (SA)",
+        "type": "bf4",
+        "frequency": "monthly",
+        "seasonal_adj": True,
+        "description": (
+            "Business applications that became employer businesses within four quarters, "
+            "United States, seasonally adjusted."
+        ),
+    },
+    # Employer within 4 quarters, monthly, NSA
+    "BFPBF4QTOTALNSAUS": {
+        "label": "Projected Employer Businesses within 4 Quarters (NSA)",
+        "type": "bf4",
+        "frequency": "monthly",
+        "seasonal_adj": False,
+        "description": (
+            "Business applications that became employer businesses within four quarters, "
+            "United States, not seasonally adjusted."
+        ),
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -84,114 +106,133 @@ _INDUSTRY_RAW: list[dict] = [
         "label": "Agriculture, Forestry, Fishing & Hunting",
         "ba_id":  "BABANAICS11NSAUS",
         "hba_id": "BAHBANAICS11NSAUS",
+        "bf4_id": "BFPBF4QNAICS11NSAUS",
     },
     {
         "naics": "21",
         "label": "Mining, Quarrying & Oil and Gas Extraction",
         "ba_id":  "BABANAICS21SAUS",
         "hba_id": "BAHBANAICS21SAUS",
+        "bf4_id": "BFPBF4QNAICS21SAUS",
     },
     {
         "naics": "22",
         "label": "Utilities",
         "ba_id":  "BABANAICS22NSAUS",
         "hba_id": "BAHBANAICS22NSAUS",
+        "bf4_id": "BFPBF4QNAICS22SAUS",
     },
     {
         "naics": "23",
         "label": "Construction",
         "ba_id":  "BABANAICS23SAUS",
         "hba_id": "BAHBANAICS23SAUS",
+        "bf4_id": "BFPBF4QNAICS23SAUS",
     },
     {
         "naics": "3133",
         "label": "Manufacturing",
         "ba_id":  "BABANAICSMNFNSAUS",
         "hba_id": "BAHBANAICSMNFNSAUS",
+        "bf4_id": "BFPBF4QNAICSMNFNSAUS",
     },
     {
         "naics": "42",
         "label": "Wholesale Trade",
         "ba_id":  "BABANAICS42SAUS",
         "hba_id": "BAHBANAICS42SAUS",
+        "bf4_id": "BFPBF4QNAICS42SAUS",
     },
     {
         "naics": "4445",
         "label": "Retail Trade",
         "ba_id":  "BABANAICSRETNSAUS",
         "hba_id": "BAHBANAICSRETNSAUS",
+        "bf4_id": "BFPBF4QNAICSRETNSAUS",
     },
     {
         "naics": "4849",
         "label": "Transportation & Warehousing",
         "ba_id":  "BABANAICSTWSAUS",
         "hba_id": "BAHBANAICSTWNSAUS",
+        "bf4_id": "BFPBF4QNAICSTWSAUS",
     },
     {
         "naics": "51",
         "label": "Information",
         "ba_id":  "BABANAICS51SAUS",
         "hba_id": "BAHBANAICS51SAUS",
+        "bf4_id": "BFPBF4QNAICS51SAUS",
     },
     {
         "naics": "52",
         "label": "Finance & Insurance",
         "ba_id":  "BABANAICS52SAUS",
         "hba_id": "BAHBANAICS52SAUS",
+        "bf4_id": "BFPBF4QNAICS52SAUS",
     },
     {
         "naics": "53",
         "label": "Real Estate & Rental and Leasing",
         "ba_id":  "BABANAICS53SAUS",
         "hba_id": "BAHBANAICS53SAUS",
+        "bf4_id": "BFPBF4QNAICS53SAUS",
     },
     {
         "naics": "54",
         "label": "Professional, Scientific & Technical Services",
         "ba_id":  "BABANAICS54SAUS",
         "hba_id": "BAHBANAICS54SAUS",
+        "bf4_id": "BFPBF4QNAICS54SAUS",
     },
     {
         "naics": "55",
         "label": "Management of Companies & Enterprises",
         "ba_id":  "BABANAICS55SAUS",
         "hba_id": "BAHBANAICS55NSAUS",
+        "bf4_id": "BFPBF4QNAICS55SAUS",
     },
     {
         "naics": "56",
         "label": "Administrative & Support / Waste Management",
         "ba_id":  "BABANAICS56SAUS",
         "hba_id": "BAHBANAICS56SAUS",
+        "bf4_id": "BFPBF4QNAICS56SAUS",
     },
     {
         "naics": "61",
         "label": "Educational Services",
         "ba_id":  "BABANAICS61SAUS",
         "hba_id": "BAHBANAICS61SAUS",
+        "bf4_id": "BFPBF4QNAICS61SAUS",
     },
     {
         "naics": "62",
         "label": "Health Care & Social Assistance",
         "ba_id":  "BABANAICS62SAUS",
         "hba_id": "BAHBANAICS62SAUS",
+        "bf4_id": "BFPBF4QNAICS62NSAUS",
     },
     {
         "naics": "71",
         "label": "Arts, Entertainment & Recreation",
         "ba_id":  "BABANAICS71SAUS",
         "hba_id": "BAHBANAICS71NSAUS",
+        "bf4_id": "BFPBF4QNAICS71SAUS",
     },
     {
         "naics": "72",
         "label": "Accommodation & Food Services",
         "ba_id":  "BABANAICS72SAUS",
         "hba_id": "BAHBANAICS72NSAUS",
+        "bf4_id": "BFPBF4QNAICS72SAUS",
     },
     {
         "naics": "81",
         "label": "Other Services (excl. Public Administration)",
         "ba_id":  "BABANAICS81SAUS",
         "hba_id": "BAHBANAICS81SAUS",
+        "bf4_id": "BFPBF4QNAICS81SAUS",
     },
 ]
 
@@ -201,6 +242,7 @@ INDUSTRY_SERIES: dict[str, dict] = {
         "naics":  entry["naics"],
         "ba_id":  entry["ba_id"],
         "hba_id": entry["hba_id"],
+        "bf4_id": entry["bf4_id"],
     }
     for entry in _INDUSTRY_RAW
 }
@@ -220,6 +262,13 @@ for entry in _INDUSTRY_RAW:
         "type": "hba",
         "frequency": "monthly",
         "seasonal_adj": entry["hba_id"].endswith("SAUS"),
+        "naics": entry["naics"],
+    }
+    SERIES_CATALOG[entry["bf4_id"]] = {
+        "label": f"Employer Businesses w/in 4Q – {entry['label']}",
+        "type": "bf4",
+        "frequency": "monthly",
+        "seasonal_adj": entry["bf4_id"].endswith("SAUS"),
         "naics": entry["naics"],
     }
 
